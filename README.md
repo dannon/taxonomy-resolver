@@ -29,8 +29,14 @@ taxonomy-resolver/
 ├── SKILL.md              # Main skill instructions (read by Claude)
 ├── resolve_taxonomy.py   # NCBI Taxonomy API client
 ├── search_ena.py        # ENA search API client
+├── test_skill.sh        # Automated test suite
+├── build.sh             # Build script for packaging
 ├── README.md            # This file (documentation)
-└── test_skill.sh        # Test script
+├── QUICKSTART.md        # 5-minute deployment guide
+├── EXAMPLES.md          # Usage examples and patterns
+├── DEPLOYMENT_GUIDE.md  # Detailed deployment documentation
+├── CHANGELOG.md         # Version history
+└── VERSION              # Current version number
 ```
 
 ## Requirements
@@ -49,9 +55,9 @@ This skill requires network access to:
 ## Installation
 
 ### For Claude.ai
-1. Zip the `taxonomy-resolver` folder
+1. Run `./build.sh` to create the deployment package
 2. Go to Settings → Features → Skills
-3. Upload the zip file
+3. Upload the generated `taxonomy-resolver.zip` file
 
 ### For Claude Code
 1. Copy the `taxonomy-resolver` folder to:
@@ -60,19 +66,16 @@ This skill requires network access to:
 2. Claude will automatically discover it
 
 ### For Claude API
-Use the Skills API to upload:
+First, create the deployment package:
+```bash
+./build.sh
+```
+
+Then use the Skills API to upload:
 ```python
 import anthropic
-from pathlib import Path
 
 client = anthropic.Anthropic()
-
-# Create a zip of the skill
-import zipfile
-with zipfile.ZipFile('taxonomy-resolver.zip', 'w') as zf:
-    for file in Path('taxonomy-resolver').rglob('*'):
-        if file.is_file():
-            zf.write(file, file.relative_to('taxonomy-resolver'))
 
 # Upload the skill
 with open('taxonomy-resolver.zip', 'rb') as f:
