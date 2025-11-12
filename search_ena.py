@@ -69,6 +69,42 @@ class ENASearcher:
         # This works across all result types (read_run, assembly, etc.)
         return f'scientific_name="{query}"'
 
+    def _group_by_bioproject(self, results: List[Dict]) -> List[Dict]:
+        """
+        Group read run results by bioproject (study_accession).
+        
+        Args:
+            results: List of read run results
+            
+        Returns:
+            List of bioproject groups with accession, read count, and runs
+        """
+        from collections import defaultdict
+        
+        bioprojects = defaultdict(lambda: {'runs': [], 'study_title': None})
+        
+        for result in results:
+            study_acc = result.get('study_accession', 'Unknown')
+            bioprojects[study_acc]['runs'].append(result)
+            # Capture study title if available
+            if result.get('study_title') and not bioprojects[study_acc]['study_title']:
+                bioprojects[study_acc]['study_title'] = result.get('study_title')
+        
+        # Convert to list format
+        grouped = []
+        for study_acc, data in bioprojects.items():
+            grouped.append({
+                'bioproject_accession': study_acc,
+                'read_count': len(data['runs']),
+                'study_title': data['study_title'],
+                'runs': data['runs']
+            })
+        
+        # Sort by read count (descending)
+        grouped.sort(key=lambda x: x['read_count'], reverse=True)
+        
+        return grouped
+    
     def search(
         self,
         query: str,
@@ -95,7 +131,7 @@ class ENASearcher:
             'read_run': [
                 'run_accession', 'study_accession', 'sample_accession',
                 'scientific_name', 'instrument_platform', 'library_layout',
-                'fastq_ftp', 'fastq_bytes', 'library_strategy'
+                'fastq_ftp', 'fastq_bytes', 'library_strategy', 'study_title'
             ],
             'assembly': [
                 'accession', 'scientific_name', 'assembly_level',
@@ -134,12 +170,27 @@ class ENASearcher:
             with request.urlopen(req, timeout=30) as response:
                 data = json.loads(response.read().decode('utf-8'))
                 
+                results = data if isinstance(data, list) else []
+                
+                # Group by bioproject if this is a read_run search
+                if result_type == 'read_run' and results:
+                    grouped = self._group_by_bioproject(results)
+                    return {
+                        'success': True,
+                        'query': query,
+                        'result_type': result_type,
+                        'count': len(results),
+                        'total_bioprojects': len(grouped),
+                        'results': results,
+                        'grouped_by_bioproject': grouped
+                    }
+                
                 return {
                     'success': True,
                     'query': query,
                     'result_type': result_type,
-                    'count': len(data) if isinstance(data, list) else 0,
-                    'results': data if isinstance(data, list) else []
+                    'count': len(results),
+                    'results': results
                 }
                 
         except error.HTTPError as e:
@@ -237,8 +288,37 @@ def format_output(data: Dict, format_type: str = 'human', show_urls: bool = Fals
     output.append(f"Result Type: {data.get('result_type', 'N/A')}")
     output.append(f"Results Found: {data.get('count', 0)}")
     
+    # Show bioproject grouping summary if available
+    if data.get('grouped_by_bioproject'):
+        output.append(f"Total BioProjects: {data.get('total_bioprojects', 0)}")
+    
     if data.get('message'):
         output.append(f"\n{data['message']}")
+    
+    # Display grouped by bioproject if available
+    if data.get('grouped_by_bioproject'):
+        output.append("\n" + "="*60)
+        output.append("RESULTS GROUPED BY BIOPROJECT")
+        output.append("="*60)
+        
+        for i, bioproject in enumerate(data['grouped_by_bioproject'], 1):
+            output.append(f"\nBioProject {i}:")
+            output.append(f"  Accession: {bioproject['bioproject_accession']}")
+            output.append(f"  Number of Reads: {bioproject['read_count']}")
+            if bioproject.get('study_title'):
+                output.append(f"  Title: {bioproject['study_title']}")
+            
+            # Show first few runs as examples
+            output.append("  Sample Runs:")
+            for j, run in enumerate(bioproject['runs'][:3], 1):
+                output.append(f"    {j}. {run.get('run_accession', 'N/A')} - {run.get('library_layout', 'N/A')}")
+            
+            if len(bioproject['runs']) > 3:
+                output.append(f"    ... and {len(bioproject['runs']) - 3} more")
+            
+            output.append("-"*60)
+        
+        return '\n'.join(output)
     
     if data.get('results'):
         output.append("\n" + "="*60)

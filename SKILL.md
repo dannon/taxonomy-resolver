@@ -51,7 +51,16 @@ Once you have a specific name, use the `resolve_taxonomy.py` script to:
 If the user needs FASTQ files or genomic data, use the `search_ena.py` script to:
 - Search ENA's free text search
 - Find relevant datasets
-- Return accession numbers and metadata
+- **Automatically group results by BioProject**
+- Return BioProject accession, number of reads, and run metadata
+
+### 4. BioProject Details (Optional)
+
+After getting ENA search results, you can fetch detailed descriptions for BioProjects using `get_bioproject_details.py`:
+- Query ENA for BioProject metadata
+- Get study title and description
+- Retrieve organism information and submission details
+- Provide context about what each BioProject contains
 
 ## Important Principles
 
@@ -91,7 +100,24 @@ python search_ena.py "Mus musculus" --limit 10
 
 **Purpose:** Searches ENA (European Nucleotide Archive) for genomic data.
 
-**Returns:** JSON with accession numbers, study information, and metadata.
+**Returns:** JSON with accession numbers, study information, and metadata. **For read_run searches, results are automatically grouped by BioProject** with:
+- BioProject accession
+- Number of reads associated with each BioProject
+- Study title (if available)
+- Sample run details
+
+### get_bioproject_details.py
+
+**Usage:**
+```bash
+python get_bioproject_details.py PRJEB1234
+python get_bioproject_details.py PRJNA123456 --format json
+python get_bioproject_details.py PRJEB1234 PRJNA456789
+```
+
+**Purpose:** Fetches detailed information about BioProjects from ENA.
+
+**Returns:** JSON with study title, description, organism, center name, and dates.
 
 ## Example Interactions
 
@@ -103,7 +129,7 @@ python search_ena.py "Mus musculus" --limit 10
 2. Run: `python resolve_taxonomy.py "Mus musculus"`
 3. Return the taxonomy ID to user
 
-### Example 2: Disambiguation Required
+### Example 2: Disambiguation Required with BioProject Details
 **User:** "Find FASTQ files for malaria parasite"
 
 **Claude's Process:**
@@ -117,7 +143,10 @@ python search_ena.py "Mus musculus" --limit 10
 4. Once user specifies (e.g., "P. falciparum"), then:
    - Run: `python resolve_taxonomy.py "Plasmodium falciparum"`
    - Run: `python search_ena.py "Plasmodium falciparum" --data-type fastq`
-5. Present results
+   - Results will be grouped by BioProject automatically
+5. (Optional) If user wants more context about specific BioProjects:
+   - Run: `python get_bioproject_details.py PRJEB1234 PRJEB5678`
+6. Present results with BioProject grouping and descriptions
 
 ### Example 3: Strain-Level Detail
 **User:** "Search for E. coli K-12 data"
@@ -178,8 +207,11 @@ python resolve_taxonomy.py "Homo sapiens"
 # Test with taxonomy ID
 python resolve_taxonomy.py --tax-id 9606
 
-# Test ENA search
+# Test ENA search (will show BioProject grouping)
 python search_ena.py "Saccharomyces cerevisiae" --data-type fastq --limit 5
+
+# Test BioProject details
+python get_bioproject_details.py PRJNA128
 ```
 
 ## Notes for Developers
