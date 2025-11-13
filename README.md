@@ -1,6 +1,8 @@
 # Taxonomy Resolver Skill
 
-A Claude skill for resolving organism names to NCBI taxonomy IDs and searching for genomic data in ENA (European Nucleotide Archive).
+A skill for resolving organism names to NCBI taxonomy IDs, searching for genomic data in ENA (European Nucleotide Archive), and recommending IWC Galaxy workflows for analysis.
+
+**💡 Recommended**: Use with [OpenCode](https://github.com/opencodeinterpreter/opencode) and the third-party skills plugin - no Claude subscription required!
 
 ## Overview
 
@@ -9,6 +11,9 @@ This skill enables Claude to:
 - Resolve scientific names to NCBI taxonomy IDs
 - Validate taxonomy IDs and retrieve organism information
 - Search ENA for FASTQ files and other genomic data
+- Retrieve BioProject details with technical specifications (platform, single vs paired-end, read length)
+- Recommend appropriate IWC (Intergalactic Workflow Commission) Galaxy workflows
+- Match workflow requirements to data characteristics
 - Handle disambiguation through natural conversation
 
 ## Philosophy
@@ -53,6 +58,34 @@ This skill requires network access to:
 - No external dependencies (uses only standard library)
 
 ## Installation
+
+### ⭐ Recommended: OpenCode with Third-Party Skills Plugin
+
+**This is the recommended approach** - no Claude subscription required, works with any API key!
+
+1. **Install OpenCode**: Download from [OpenCode GitHub](https://github.com/opencodeinterpreter/opencode) or your preferred package manager
+
+2. **Install the Third-Party Skills Plugin**: Follow the plugin installation instructions in the OpenCode documentation
+
+3. **Add this skill**:
+   ```bash
+   # Clone or copy this repository to your OpenCode skills directory
+   cp -r taxonomy-resolver ~/.opencode/skills/
+   ```
+
+4. **Configure your API key**: Set your API key in OpenCode settings
+   - No Claude subscription needed!
+   - Pay only for API usage
+   - Works with any API key
+
+5. **Start using**: OpenCode will automatically load the skill and make it available to you 
+
+**Benefits of this approach**:
+- ✅ No Claude.ai subscription required
+- ✅ Works with any API key (including pay-as-you-go)
+- ✅ Full control over your environment
+- ✅ Easy to update and customize skills
+- ✅ Open source and community-driven
 
 ### For Claude.ai
 1. Run `./build.sh` to create the deployment package
