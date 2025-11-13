@@ -50,6 +50,7 @@ taxonomy-resolver/
 This skill requires network access to:
 - `api.ncbi.nlm.nih.gov` (NCBI Taxonomy API)
 - `www.ebi.ac.uk` (ENA API)
+- `iwc.galaxyproject.org` (IWC Workflow Manifest)
 
 **Important**: Add these domains to your Claude environment's network allowlist. Without this, the skill will fail with network errors.
 
@@ -207,6 +208,7 @@ When APIs fail, the skill reports errors clearly and suggests solutions (like en
 **Solution:** Add the required domains to your network allowlist:
 - `api.ncbi.nlm.nih.gov`
 - `www.ebi.ac.uk`
+- `iwc.galaxyproject.org`
 
 ### No Results Found
 **Problem:** Search returns zero results for a valid organism
