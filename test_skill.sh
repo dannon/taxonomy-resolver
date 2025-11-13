@@ -77,13 +77,43 @@ else
 fi
 echo ""
 
-# Test 7: Invalid taxonomy query (should fail gracefully)
-echo "Test 7: Invalid taxonomy query (should fail gracefully)"
+# Test 7: BioProject details lookup
+echo "Test 7: BioProject details lookup (PRJDB7788)"
+echo "--------------------------------------"
+if python3 get_bioproject_details.py PRJDB7788 2>/dev/null; then
+    echo "✓ Test 7 passed"
+else
+    echo "❌ Test 7 failed (Network access may not be configured)"
+fi
+echo ""
+
+# Test 8: IWC workflow category listing
+echo "Test 8: IWC workflow category listing"
+echo "--------------------------------------"
+if python3 search_iwc_workflows.py --list-categories 2>/dev/null; then
+    echo "✓ Test 8 passed"
+else
+    echo "❌ Test 8 failed (Network access may not be configured)"
+fi
+echo ""
+
+# Test 9: IWC workflow search by category
+echo "Test 9: IWC workflow search by category (Variant Calling, limit 3)"
+echo "--------------------------------------"
+if python3 search_iwc_workflows.py --category "Variant Calling" --limit 3 2>/dev/null; then
+    echo "✓ Test 9 passed"
+else
+    echo "❌ Test 9 failed (Network access may not be configured)"
+fi
+echo ""
+
+# Test 10: Invalid taxonomy query (should fail gracefully)
+echo "Test 10: Invalid taxonomy query (should fail gracefully)"
 echo "--------------------------------------"
 if python3 resolve_taxonomy.py "ThisOrganismDoesNotExist12345" 2>/dev/null; then
-    echo "⚠ Test 7: Script should have failed but didn't"
+    echo "⚠ Test 10: Script should have failed but didn't"
 else
-    echo "✓ Test 7 passed (failed gracefully as expected)"
+    echo "✓ Test 10 passed (failed gracefully as expected)"
 fi
 echo ""
 
@@ -94,5 +124,6 @@ echo ""
 echo "Note: If tests failed with network errors, ensure these domains are allowlisted:"
 echo "  - api.ncbi.nlm.nih.gov"
 echo "  - www.ebi.ac.uk"
+echo "  - iwc.galaxyproject.org"
 echo ""
 echo "Add these to your Claude environment's network settings."
