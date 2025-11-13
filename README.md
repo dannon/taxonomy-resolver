@@ -2,7 +2,7 @@
 
 A skill for resolving organism names to NCBI taxonomy IDs, searching for genomic data in ENA (European Nucleotide Archive), and recommending IWC Galaxy workflows for analysis.
 
-**💡 Recommended**: Use with [OpenCode](https://github.com/opencodeinterpreter/opencode) and the third-party skills plugin - no Claude subscription required!
+**💡 Recommended**: Use with [OpenCode](https://github.com/sst/opencode) and the third-party skills plugin - no Claude subscription required!
 
 ## Overview
 
@@ -63,9 +63,16 @@ This skill requires network access to:
 
 **This is the recommended approach** - no Claude subscription required, works with any API key!
 
-1. **Install OpenCode**: Download from [OpenCode GitHub](https://github.com/opencodeinterpreter/opencode) or your preferred package manager
+1. **Install OpenCode**: Download from [OpenCode GitHub](https://github.com/sst/opencode) or your preferred package manager
 
-2. **Install the Third-Party Skills Plugin**: Follow the plugin installation instructions in the OpenCode documentation
+2. **Install the Third-Party Skills Plugin**:
+   - Add the plugin to your OpenCode config (for example `~/.opencode/config.json`):
+     ```json
+     {
+       "plugin": ["opencode-skills"]
+     }
+     ```
+   - Or follow the plugin installation instructions in the OpenCode documentation
 
 3. **Add this skill**:
    ```bash
