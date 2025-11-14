@@ -4,9 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-A Claude skill that resolves ambiguous organism names to precise NCBI taxonomy IDs and searches for genomic data in ENA (European Nucleotide Archive). The skill follows the principle: **"Let the APIs do the work, Claude just orchestrates."**
+This repository contains two complementary Claude skills for working with genomic data:
 
-## Architecture
+1. **taxonomy-resolver**: Resolves organism names to NCBI taxonomy IDs and searches for genomic data in ENA
+2. **iwc-workflow-recommender**: Recommends appropriate IWC Galaxy workflows for genomic analysis
+
+Both skills follow the principle: **"Let the APIs do the work, Claude just orchestrates."**
+
+## Repository Structure
+
+```
+taxonomy-resolver/          (the repository)
+├── taxonomy-resolver/      (skill: data discovery)
+│   ├── resolve_taxonomy.py
+│   ├── search_ena.py
+│   ├── get_bioproject_details.py
+│   ├── SKILL.md
+│   └── ...
+├── iwc-workflow-recommender/  (skill: workflow recommendation)
+│   ├── search_iwc_workflows.py
+│   ├── SKILL.md
+│   └── ...
+├── CLAUDE.md               (this file)
+└── README.md               (top-level documentation)
+```
+
+## Skill 1: taxonomy-resolver
 
 ### Core Components
 
@@ -39,21 +62,11 @@ A Claude skill that resolves ambiguous organism names to precise NCBI taxonomy I
 - Critical disambiguation-first approach before calling APIs
 - Example interactions and error handling patterns
 
-### Design Philosophy
-
-1. **API-Driven Validation**: Never try to validate or invent taxonomy data. Always defer to external APIs (NCBI, ENA) for authoritative information.
-
-2. **Disambiguation First**: Never pass ambiguous names to APIs. Always disambiguate to species-level or specific taxa first through conversational clarification.
-
-3. **No External Dependencies**: Both Python scripts use only the standard library (urllib, json, argparse) to maximize portability.
-
-4. **Dual Output Formats**: All scripts support both human-readable and JSON output via `--format` flag.
-
-## Common Commands
-
-### Testing the Skill
+### Testing taxonomy-resolver
 
 ```bash
+cd taxonomy-resolver
+
 # Run complete test suite
 bash test_skill.sh
 
@@ -68,6 +81,8 @@ python3 get_bioproject_details.py PRJDB7788
 ### Script Usage Patterns
 
 ```bash
+cd taxonomy-resolver
+
 # Taxonomy resolution by name
 python3 resolve_taxonomy.py "Plasmodium falciparum"
 python3 resolve_taxonomy.py "Escherichia coli" --format json
@@ -89,29 +104,93 @@ python3 get_bioproject_details.py PRJNA123456 --format json
 python3 get_bioproject_details.py PRJEB1234 PRJNA456789
 ```
 
-### Deployment
+## Skill 2: iwc-workflow-recommender
+
+### Core Components
+
+**search_iwc_workflows.py** - IWC workflow catalog search
+- `IWCWorkflowSearcher` class handles IWC (Intergalactic Workflow Commission) workflow manifest queries
+- `search(category, limit)` - Searches IWC workflows with optional category filter
+- `list_categories()` - Lists all available workflow categories
+- Returns workflow names, descriptions, TRS IDs, categories, tags, and creators
+- Manifest URL: `https://iwc.galaxyproject.org/workflow_manifest.json`
+
+**SKILL.md** - Main skill instructions (read by Claude)
+- Defines when to use the skill
+- **NEVER write code** philosophy - always recommend existing IWC workflows
+- Workflow interpretation and matching guidance
+- Data compatibility checking instructions
+
+### Testing iwc-workflow-recommender
 
 ```bash
-# Rebuild the skill zip package (after making changes)
-./build.sh
+cd iwc-workflow-recommender
 
-# Install for Claude Code (personal)
-cp -r taxonomy-resolver ~/.claude/skills/
+# Run complete test suite
+bash test_skill.sh
 
-# Install for Claude Code (project-specific)
-cp -r taxonomy-resolver ./.claude/skills/
+# List available categories
+python3 search_iwc_workflows.py --list-categories
 
-# Make scripts executable (if needed)
-chmod +x resolve_taxonomy.py search_ena.py test_skill.sh
+# Search specific category
+python3 search_iwc_workflows.py --category "Variant Calling"
+
+# Limit results
+python3 search_iwc_workflows.py --category "Transcriptomics" --limit 5
+
+# Get JSON output
+python3 search_iwc_workflows.py --format json
 ```
+
+## Deployment
+
+### For Claude Code (personal)
+```bash
+cp -r taxonomy-resolver ~/.claude/skills/
+cp -r iwc-workflow-recommender ~/.claude/skills/
+```
+
+### For Claude Code (project-specific)
+```bash
+cp -r taxonomy-resolver ./.claude/skills/
+cp -r iwc-workflow-recommender ./.claude/skills/
+```
+
+### For Claude.ai
+```bash
+# Build taxonomy-resolver
+cd taxonomy-resolver && ./build.sh
+
+# Build iwc-workflow-recommender
+cd ../iwc-workflow-recommender && ./build.sh
+```
+
+Then upload the generated ZIP files to Claude.ai (Settings → Features → Skills).
 
 ## Network Requirements
 
-⚠️ **Critical**: This skill requires network access to:
+⚠️ **Critical**: These skills require network access to:
+
+**taxonomy-resolver:**
 - `api.ncbi.nlm.nih.gov` (NCBI Taxonomy API)
 - `www.ebi.ac.uk` (ENA API)
 
+**iwc-workflow-recommender:**
+- `iwc.galaxyproject.org` (IWC Workflow Manifest)
+
 These domains must be allowlisted in your Claude environment. Network errors indicate missing network permissions.
+
+## Design Philosophy
+
+1. **API-Driven Validation**: Never try to validate or invent taxonomy/workflow data. Always defer to external APIs for authoritative information.
+
+2. **Disambiguation First**: Never pass ambiguous names to APIs. Always disambiguate to species-level or specific taxa first through conversational clarification.
+
+3. **No External Dependencies**: All Python scripts use only the standard library (urllib, json, argparse) to maximize portability.
+
+4. **Dual Output Formats**: All scripts support both human-readable and JSON output via `--format` flag.
+
+5. **No Code Generation** (iwc-workflow-recommender): The IWC catalog contains vetted, production-ready workflows. Always recommend existing workflows rather than writing custom analysis code.
 
 ## Error Handling Patterns
 
@@ -142,8 +221,15 @@ All scripts follow consistent error handling:
 3. Supports batch queries for multiple accessions
 4. Accepts both PRJEB (ENA) and PRJNA (NCBI) accessions
 
+### IWC Workflow Search Flow
+1. Fetches the complete workflow manifest from iwc.galaxyproject.org
+2. Extracts workflow metadata (name, description, TRS ID, categories, tags, creators)
+3. Filters workflows without tests (considered incomplete)
+4. Applies optional category filtering
+5. Returns JSON with all workflow details for Claude to interpret and match to user needs
+
 ### Output Formatting
-- `format_output()` functions in both scripts handle human-readable and JSON formats
+- `format_output()` functions in all scripts handle human-readable and JSON formats
 - Human format shows key fields with clear labels
 - JSON format returns complete API response data
 - Long values are truncated in human format (>100 chars)
