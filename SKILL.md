@@ -1,13 +1,13 @@
 ---
 name: taxonomy-resolver
-description: Resolves ambiguous organism names to precise NCBI taxonomy IDs and scientific names, then recommends appropriate IWC (Intergalactic Workflow Commission) Galaxy workflows for analysis. Use this skill when users provide common names (like "malaria parasite", "E. coli", "mouse"), abbreviated names, or when you need to convert any organism reference to an exact scientific name for API queries. This skill handles disambiguation through conversation, validates taxonomy IDs via NCBI Taxonomy API, provides ENA FASTQ search capabilities, and ALWAYS recommends existing IWC workflows rather than producing custom scripts or analysis steps.
+description: Resolves ambiguous organism names to precise NCBI taxonomy IDs and scientific names, then searches for genomic data in ENA (European Nucleotide Archive). Use this skill when users provide common names (like "malaria parasite", "E. coli", "mouse"), abbreviated names, or when you need to convert any organism reference to an exact scientific name for API queries. This skill handles disambiguation through conversation and validates taxonomy IDs via NCBI Taxonomy API.
 ---
 
 # Taxonomy Resolver Skill
 
 ## Purpose
 
-This skill enables Claude to convert ambiguous organism names, common names, or taxonomy references into precise, API-ready scientific names and NCBI taxonomy IDs. It also helps users find relevant genomic data (FASTQ files) and **recommends appropriate IWC Galaxy workflows for analysis**. **The core principles: (1) let external APIs do the work, (2) ALWAYS recommend existing IWC workflows instead of writing code or producing custom analysis steps, (3) Claude's role is orchestration, disambiguation, validation, and workflow recommendation - NOT code generation.**
+This skill enables Claude to convert ambiguous organism names, common names, or taxonomy references into precise, API-ready scientific names and NCBI taxonomy IDs. It also helps users find relevant genomic data (FASTQ files, assemblies, BioProjects) from ENA. **The core principle: let external APIs do the work - Claude's role is orchestration, disambiguation, and validation - NOT inventing taxonomy data.**
 
 ## When to Use This Skill
 
@@ -15,8 +15,6 @@ Use this skill when:
 - User mentions organisms by common name ("malaria parasite", "mosquito", "house mouse")
 - User provides ambiguous scientific names ("E. coli", "SARS-CoV-2 isolate")
 - User asks to search for genomic data (FASTQ, assemblies, etc.) for an organism
-- User wants to analyze genomic data (ALWAYS recommend IWC workflows, never write custom scripts)
-- User needs workflow recommendations for any bioinformatics analysis
 - You need to validate or look up taxonomy IDs
 - User provides a taxonomy ID that needs verification
 - Converting organism names for NCBI, ENA, or other database queries
@@ -25,15 +23,15 @@ Use this skill when:
 
 ### 1. Extract User Intent (Critical)
 
-**Before calling any APIs, understand what the user wants to do.** Extract:
+**Before calling any APIs, understand what the user wants.** Extract:
 - **Organism**: What species/taxa are they interested in?
-- **Analysis type**: RNA-seq, variant calling, genome assembly, ChIP-seq, etc.
-- **Data type**: FASTQ reads, assemblies, annotations, etc.
+- **Data type**: FASTQ reads, assemblies, studies, samples, etc.
+- **Filters** (optional): Library strategy (RNA-Seq, WGS, ChIP-Seq, etc.)
 
 **Examples of intent extraction:**
-- "I want to analyze Plasmodium falciparum RNA-seq data" → Organism: P. falciparum, Analysis: RNA-seq/Transcriptomics, Data: FASTQ reads
-- "Find variant calling workflows for mouse" → Organism: Mus musculus, Analysis: Variant calling
+- "Find FASTQ files for Plasmodium falciparum" → Organism: P. falciparum, Data: FASTQ reads
 - "Search for E. coli genome assemblies" → Organism: E. coli (needs disambiguation), Data: assemblies
+- "Get RNA-seq data for mouse" → Organism: Mus musculus, Data: FASTQ with RNA-Seq filter
 
 ### 2. Disambiguation (Critical)
 
@@ -75,7 +73,6 @@ If the user needs FASTQ files or genomic data, use the `search_ena.py` script wi
   - Read length and insert size (if available)
   - Number of runs/samples
   - Library strategy (RNA-Seq, WGS, etc.)
-- These technical details are CRITICAL for matching workflows to data
 
 **Example intent-based queries:**
 - User wants RNA-seq data → `python search_ena.py 'scientific_name="Plasmodium falciparum" AND library_strategy="RNA-Seq"'`
@@ -89,70 +86,26 @@ After getting ENA search results, you can fetch detailed descriptions for BioPro
 - Get study title and description
 - Retrieve organism information and submission details
 - Provide context about what each BioProject contains
-- **Note the technical specifications** (platform, layout, read length) from the ENA search results
-
-### 6. IWC Workflow Recommendations (REQUIRED for Analysis Tasks)
-
-**CRITICAL: When users need to analyze genomic data, ALWAYS recommend relevant IWC Galaxy workflows. NEVER write custom scripts or produce step-by-step analysis instructions.** Use `search_iwc_workflows.py` with **intent-based filtering**:
-- **Use the extracted intent to filter by category**
-- For RNA-seq → Use `--category "Transcriptomics"`
-- For variant calling → Use `--category "Variant Calling"`
-- For genome assembly → Use `--category "Genome assembly"`
-- For viral analysis → Use `--category "Virology"`
-- Fetch IWC (Intergalactic Workflow Commission) workflow manifest
-- **YOU interpret the workflow descriptions to match them to:**
-  1. **The organism** (domain, specific species mentions)
-  2. **The data characteristics** (single vs paired-end, platform, read length)
-  3. **The analysis type** (RNA-seq, variant calling, etc.)
-- Look for organism-specific mentions, domain keywords (viral, bacterial, eukaryotic), and general applicability
-- **Match workflow requirements to the BioProject technical details**
-- Provide TRS IDs for importing workflows into Galaxy
-
-**Important**: The script returns workflows (filtered by category if specified). It's YOUR job to:
-1. Read the workflow names, descriptions, tags, and categories
-2. Determine which workflows are relevant to the user's organism AND analysis intent
-3. **Match workflow data requirements to the BioProject technical details**:
-   - Does the workflow require paired-end data? Check if BioProject has PAIRED layout
-   - Does the workflow work with the sequencing platform? (Illumina, PacBio, etc.)
-   - Does the workflow need specific read lengths or quality?
-   - Are there organism-specific requirements (reference genome availability, etc.)?
-4. Explain why each suggested workflow is appropriate AND compatible with the data
-5. Prioritize workflows that mention the organism or its domain explicitly
-6. **Warn users if there's a mismatch** (e.g., workflow needs paired-end but data is single-end)
-
-**Example intent-based workflow searches:**
-- User wants RNA-seq analysis → `python search_iwc_workflows.py --category "Transcriptomics"`
-- User wants variant calling → `python search_iwc_workflows.py --category "Variant Calling"`
-- User wants viral analysis → `python search_iwc_workflows.py --category "Virology"`
-- User's intent unclear → `python search_iwc_workflows.py` (fetch all, then interpret)
 
 ## Important Principles
 
-1. **Extract intent first**: Before calling APIs, understand what the user wants to do (analysis type, data type, etc.)
+1. **Extract intent first**: Before calling APIs, understand what the user wants (organism, data type, filters)
 
-2. **ALWAYS recommend IWC workflows, NEVER write code**: 
-   - ✅ Recommend existing IWC workflows from the catalog
-   - ❌ Write custom Python/R/bash scripts for analysis
-   - ❌ Produce step-by-step analysis instructions
-   - ❌ Generate custom code for data processing
-   - The IWC catalog contains vetted, production-ready workflows - use them!
-
-3. **Use intent to filter API calls**: 
-   - Add `library_strategy` filters to ENA searches based on analysis type
-   - Use `--category` filters for IWC workflow searches based on analysis type
+2. **Use intent to filter API calls**:
+   - Add `library_strategy` filters to ENA searches based on data type
    - This gives more relevant results and saves the user time
 
-4. **Let the API handle validation**: Don't try to validate taxonomy yourself. Call the API and report what it returns.
+3. **Let the API handle validation**: Don't try to validate taxonomy yourself. Call the API and report what it returns.
 
-5. **Be conversational about disambiguation**: Don't lecture, just ask naturally:
+4. **Be conversational about disambiguation**: Don't lecture, just ask naturally:
    - ✅ "Which malaria parasite are you interested in? Plasmodium falciparum or P. vivax?"
    - ❌ "I cannot proceed without a species-level designation. Please provide taxonomic clarification."
 
-6. **Don't hallucinate taxonomy IDs**: If you're not certain, use the API. Never make up taxonomy IDs.
+5. **Don't hallucinate taxonomy IDs**: If you're not certain, use the API. Never make up taxonomy IDs.
 
-7. **Species-level is usually the target**: Most database queries work best with species-level names, but subspecies and strains are fine if specified.
+6. **Species-level is usually the target**: Most database queries work best with species-level names, but subspecies and strains are fine if specified.
 
-8. **Common names are okay as starting points**: Use them to begin disambiguation, but always convert to scientific names for APIs.
+7. **Common names are okay as starting points**: Use them to begin disambiguation, but always convert to scientific names for APIs.
 
 ## Available Scripts
 
@@ -214,30 +167,6 @@ python get_bioproject_details.py PRJEB1234 PRJNA456789
 
 **Returns:** JSON with study title, description, organism, center name, and dates.
 
-### search_iwc_workflows.py
-
-**Usage:**
-```bash
-python search_iwc_workflows.py --list-categories
-python search_iwc_workflows.py --category "Variant Calling"
-python search_iwc_workflows.py --category "Transcriptomics" --limit 10
-python search_iwc_workflows.py --format json
-```
-
-**Purpose:** Fetches IWC workflow manifest. Returns ALL workflows (or filtered by category). **You must interpret the results to match workflows to organisms.**
-
-**Returns:** JSON with workflow names, descriptions, categories, TRS IDs, tags, and creators. 
-
-**How to use the results:**
-1. Read workflow descriptions, names, and tags carefully
-2. Match workflows to the user's organism based on:
-   - Direct organism mentions (e.g., "SARS-CoV-2", "bacterial")
-   - Domain keywords (viral, bacterial, eukaryotic, prokaryotic)
-   - Analysis type relevance (e.g., RNA-seq for transcriptomics)
-   - General applicability (many workflows work across organisms)
-3. Explain to the user WHY each workflow is relevant
-4. Prioritize workflows with explicit organism/domain matches
-
 ## Example Interactions
 
 ### Example 1: Simple Resolution
@@ -288,31 +217,17 @@ python search_iwc_workflows.py --format json
 1. Run: `python resolve_taxonomy.py --tax-id 9606`
 2. Report the result (Homo sapiens)
 
-### Example 5: Complete Workflow - Data Search + Analysis Suggestions (Intent-Based)
-**User:** "I want to analyze Plasmodium falciparum RNA-seq data"
+### Example 5: Intent-Based Data Search
+**User:** "I need Plasmodium falciparum RNA-seq data"
 
 **Claude's Process:**
-1. **Extract intent**: Organism = P. falciparum, Analysis = RNA-seq/Transcriptomics, Data = FASTQ reads
+1. **Extract intent**: Organism = P. falciparum, Data = RNA-seq/FASTQ, Filter = RNA-Seq
 2. Organism is specific enough (P. falciparum)
 3. Run: `python resolve_taxonomy.py "Plasmodium falciparum"`
 4. **Run with intent-based filter**: `python search_ena.py 'scientific_name="Plasmodium falciparum" AND library_strategy="RNA-Seq"' --limit 10`
 5. **Present BioProject groupings with technical details**:
-   - Example: "PRJEB1234: 12 runs, Illumina HiSeq 2500, PAIRED-end, 150bp reads"
-   - Note the library layout (SINGLE vs PAIRED) - this is critical for workflow selection!
-6. **Run with intent-based category filter**: `python search_iwc_workflows.py --category Transcriptomics`
-7. **Read through the workflow results and identify relevant ones:**
-   - Look for eukaryotic RNA-seq workflows (P. falciparum is eukaryotic)
-   - Check if any mention parasites, protozoa, or are general-purpose
-   - Avoid bacterial or viral-specific workflows
-   - **Match workflow requirements to data characteristics**:
-     * If data is PAIRED-end, recommend paired-end workflows
-     * If data is SINGLE-end, recommend single-end or flexible workflows
-     * Check platform compatibility (most IWC workflows are Illumina-focused)
-8. Suggest 2-3 most relevant workflows with explanations
-9. **Explain compatibility**: "This workflow accepts paired-end Illumina data, which matches your BioProject PRJEB1234"
-10. Provide TRS IDs for importing workflows into Galaxy
-
-**Key improvement**: By filtering ENA search to `library_strategy="RNA-Seq"` and IWC workflows to `--category Transcriptomics`, the results are much more relevant to the user's actual intent!
+   - Example: "PRJEB1234: 12 runs, Illumina HiSeq 2500, PAIRED-end, 150bp reads, RNA-Seq"
+6. Provide BioProject accessions and details
 
 ## Error Handling
 
@@ -332,54 +247,35 @@ python search_iwc_workflows.py --format json
 - Note which domains need to be allowlisted (api.ncbi.nlm.nih.gov, www.ebi.ac.uk)
 
 **If API rate limits are hit:**
-- **CRITICAL**: Since we're using external APIs, rate limits can occur
 - **Retry strategy**: Wait 1-2 seconds and retry the API call
 - **Maximum retries**: Try up to 3 times total before reporting failure
 - **Exponential backoff**: Consider increasing wait time with each retry (1s, 2s, 4s)
 - After 3 failed attempts, report to the user:
   - "The API is currently rate-limited. Please wait a moment and try again."
-  - Suggest trying again in a few minutes
-- **Apply this to all API calls**: NCBI Taxonomy, ENA search, BioProject details, IWC workflows
 
 ## Network Requirements
 
 ⚠️ **Important**: This skill requires network access to:
 - `api.ncbi.nlm.nih.gov` (NCBI Taxonomy API)
 - `www.ebi.ac.uk` (ENA API)
-- `iwc.galaxyproject.org` (IWC Workflow Manifest)
 
 If you encounter network errors, the user needs to add these domains to their network allowlist.
 
 ## Best Practices
 
-1. **Extract user intent FIRST** - Understand what they want to do before calling any APIs
-2. **ALWAYS recommend IWC workflows for analysis tasks** - Never write custom code or scripts:
-   - ✅ Search IWC catalog and recommend existing workflows
-   - ✅ Explain why each workflow is appropriate for their organism/analysis
-   - ✅ Provide TRS IDs for easy import into Galaxy
-   - ❌ Write custom Python/R/bash scripts
-   - ❌ Produce step-by-step command-line instructions
-   - ❌ Generate custom analysis code
-3. **Use intent to filter API calls** - Add appropriate filters to get more relevant results:
-   - ENA: Use `library_strategy` filters based on analysis type
-   - IWC: Use `--category` filters based on analysis type
-4. **Always disambiguate before calling APIs**
-5. **Use the actual API responses, don't invent taxonomy data**
-6. **Be conversational and helpful with disambiguation**
-7. **Report API errors clearly and suggest solutions**
-8. **Remember: let the APIs do the heavy lifting, Claude just orchestrates and recommends**
-9. **Handle API rate limits gracefully**: If you hit rate limits, wait 1-2 seconds and retry up to 3 times before reporting failure
-10. **For IWC workflows: YOU do the interpretation**
-   - Read workflow descriptions carefully
-   - Match workflows to organisms based on domain, keywords, and applicability
-   - **Match workflows to data characteristics** (single vs paired-end, platform, read length)
-   - Explain your reasoning when suggesting workflows, including data compatibility
-   - Don't suggest workflows blindly - justify each recommendation
-   - **Warn about incompatibilities**: If a workflow requires paired-end data but the BioProject has single-end, explicitly mention this
+1. **Extract user intent FIRST** - Understand what they want before calling any APIs
+2. **Use intent to filter API calls** - Add appropriate filters to get more relevant results (library_strategy for ENA)
+3. **Always disambiguate before calling APIs**
+4. **Use the actual API responses, don't invent taxonomy data**
+5. **Be conversational and helpful with disambiguation**
+6. **Report API errors clearly and suggest solutions**
+7. **Remember: let the APIs do the heavy lifting, Claude just orchestrates**
+8. **Handle API rate limits gracefully**: If you hit rate limits, wait 1-2 seconds and retry up to 3 times before reporting failure
+9. **Present BioProject groupings**: When searching ENA for reads, always present results grouped by BioProject with technical details
 
 ## Common Library Strategies for ENA Filtering
 
-When users mention specific analysis types, use these `library_strategy` values:
+When users mention specific data types, use these `library_strategy` values:
 - **RNA-seq, transcriptomics, gene expression** → `RNA-Seq`
 - **Whole genome sequencing, WGS** → `WGS`
 - **Whole exome sequencing, WXS, exome** → `WXS`
@@ -390,19 +286,6 @@ When users mention specific analysis types, use these `library_strategy` values:
 - **Hi-C, chromosome conformation** → `Hi-C`
 - **Metagenomics** → `METAGENOMIC`
 - **Small RNA, miRNA** → `miRNA-Seq`
-
-## Common IWC Workflow Categories
-
-When users mention specific analysis types, use these categories:
-- **RNA-seq, transcriptomics** → `Transcriptomics`
-- **Variant calling, SNP calling, mutations** → `Variant Calling`
-- **Genome assembly, de novo assembly** → `Genome assembly`
-- **Gene annotation, genome annotation** → `Genome Annotation`
-- **Viral analysis, virus** → `Virology`
-- **ChIP-seq, epigenetics, methylation** → `Epigenetics`
-- **Metagenomics, microbiome** → `Microbiome` or `Metabarcoding`
-- **Single cell, scRNA-seq** → `Single Cell`
-- **Proteomics, mass spec** → `Proteomics`
 
 ## Testing the Skill
 
@@ -418,28 +301,17 @@ python resolve_taxonomy.py --tax-id 9606
 python search_ena.py "Saccharomyces cerevisiae" --data-type fastq --limit 5
 
 # Test BioProject details
-python get_bioproject_details.py PRJNA128
-
-# Test IWC workflow category listing
-python search_iwc_workflows.py --list-categories
-
-# Test workflow search with category filter
-python search_iwc_workflows.py --category "Variant Calling"
-
-# Test fetching all workflows (for LLM interpretation)
-python search_iwc_workflows.py --format json
+python get_bioproject_details.py PRJDB7788
 ```
 
 ## Notes for Developers
 
-This skill follows the principle articulated by Danielle: **"why try to teach the ai to do a thing an api can already do? just make an agentic tool that hits that api endpoint and walk away."**
+This skill follows the principle: **"Let the APIs do the work, Claude just orchestrates."**
 
 The skill doesn't try to make Claude an expert in taxonomy or bioinformatics. It just provides:
 1. Clear guidance on when to disambiguate
 2. Tools to call the right APIs
 3. Instructions on how to handle responses
-4. **A mandate to recommend existing IWC workflows rather than writing custom code**
+4. Guidance on filtering searches based on intent
 
 All validation is the API's problem. If results seem wrong or missing, that's ENA/NCBI's issue to address, not ours.
-
-**Critical design decision**: This skill NEVER produces custom analysis scripts or step-by-step instructions. The IWC catalog contains hundreds of vetted, production-ready workflows. Our job is to find and recommend the right ones, not to reinvent the wheel by writing new code.

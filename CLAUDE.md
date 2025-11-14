@@ -34,13 +34,6 @@ A Claude skill that resolves ambiguous organism names to precise NCBI taxonomy I
 - Accepts both PRJEB (ENA) and PRJNA (NCBI) accessions
 - Base URL: `https://www.ebi.ac.uk/ena/portal/api`
 
-**search_iwc_workflows.py** - IWC workflow catalog search
-- `IWCWorkflowSearcher` class handles IWC (Intergalactic Workflow Commission) workflow manifest queries
-- `search(category, limit)` - Searches IWC workflows with optional category filter
-- `list_categories()` - Lists all available workflow categories
-- Returns workflow names, descriptions, TRS IDs, categories, tags, and creators
-- Manifest URL: `https://iwc.galaxyproject.org/workflow_manifest.json`
-
 **SKILL.md** - Main skill instructions (read by Claude)
 - Defines when to use the skill and core workflows
 - Critical disambiguation-first approach before calling APIs
@@ -70,8 +63,6 @@ python3 resolve_taxonomy.py --tax-id 9606
 python3 resolve_taxonomy.py "Mus musculus" --detailed
 python3 search_ena.py "Saccharomyces cerevisiae" --data-type fastq --limit 5
 python3 get_bioproject_details.py PRJDB7788
-python3 search_iwc_workflows.py --list-categories
-python3 search_iwc_workflows.py --category "Variant Calling" --limit 3
 ```
 
 ### Script Usage Patterns
@@ -96,12 +87,6 @@ python3 search_ena.py "Homo sapiens" --format json --show-urls
 python3 get_bioproject_details.py PRJDB7788
 python3 get_bioproject_details.py PRJNA123456 --format json
 python3 get_bioproject_details.py PRJEB1234 PRJNA456789
-
-# IWC workflow searches
-python3 search_iwc_workflows.py --list-categories
-python3 search_iwc_workflows.py --category "Variant Calling"
-python3 search_iwc_workflows.py --category "Transcriptomics" --limit 10
-python3 search_iwc_workflows.py --format json
 ```
 
 ### Deployment
@@ -125,7 +110,6 @@ chmod +x resolve_taxonomy.py search_ena.py test_skill.sh
 ⚠️ **Critical**: This skill requires network access to:
 - `api.ncbi.nlm.nih.gov` (NCBI Taxonomy API)
 - `www.ebi.ac.uk` (ENA API)
-- `iwc.galaxyproject.org` (IWC Workflow Manifest)
 
 These domains must be allowlisted in your Claude environment. Network errors indicate missing network permissions.
 
@@ -157,13 +141,6 @@ All scripts follow consistent error handling:
 2. Retrieves metadata including title, description, organism, center, and dates
 3. Supports batch queries for multiple accessions
 4. Accepts both PRJEB (ENA) and PRJNA (NCBI) accessions
-
-### IWC Workflow Search Flow
-1. Fetches the complete workflow manifest from iwc.galaxyproject.org
-2. Extracts workflow metadata (name, description, TRS ID, categories, tags, creators)
-3. Filters workflows without tests (considered incomplete)
-4. Applies optional category filtering
-5. Returns JSON with all workflow details for LLM interpretation
 
 ### Output Formatting
 - `format_output()` functions in both scripts handle human-readable and JSON formats
